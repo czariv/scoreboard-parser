@@ -227,7 +227,7 @@ def function2(table):
     print(table)
 
 def main(filename=None):
-    example = 'examples/example2.s'
+    example = 'examples/example5.s'
     config_filename = 'configs/config2.txt'
     instructions = parse_file(example)
     table = parse_assembly_file(example)
