@@ -33,10 +33,6 @@ class Instruction:
         self.imm = data.get('imm')
         self.line = data.get('line')
 
-    def method1(self):
-        # Implement your method here
-        pass
-
 class Operator:
     def __init__(self, op_name, busy=False, fi=0, fj=0, fk=0, qj=False, qk=False, rj=False, rk=False, exec_time=0):
         self.op = op_name
@@ -226,9 +222,9 @@ def function1(filename, table):
 def function2(table):
     print(table)
 
-def main(filename=None):
-    example = 'examples/example5.s'
-    config_filename = 'configs/config2.txt'
+def main(ex, config, filename=None):
+    example = f'examples/example{ex}.s'
+    config_filename = f'configs/config{config}.txt'
     instructions = parse_file(example)
     table = parse_assembly_file(example)
     txt_data = read_config_file(config_filename)
@@ -243,11 +239,10 @@ def main(filename=None):
         function2(table)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Exemplo de script com parâmetro opcional filename.")
-    parser.add_argument("--filename", help="Nome do arquivo a ser salvo.")
+    parser = argparse.ArgumentParser(description="Script que faz o parser de um scoreboard com parâmetros obrigatórios ex e config, além de parámetro opcional filename.")
+    parser.add_argument("ex", type=int, help="Número do exemplo")
+    parser.add_argument("config", type=int, help="Número da configuração")
+    parser.add_argument("--filename", help="Nome do arquivo a ser salvo se necessario.")
     args = parser.parse_args()
 
-    if args.filename:
-        main(args.filename)
-    else:
-        main()
+    main(args.ex, args.config, args.filename)
