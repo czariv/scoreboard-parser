@@ -21,6 +21,9 @@ REG_PREFIXES = {
 registers = {f"x{i}": None for i in range(32)}
 registers.update({f"f{i}": None for i in range(32)})
 
+waiting_read = {f"x{i}": [] for i in range(32)}
+waiting_read.update({f"f{i}": [] for i in range(32)})
+
 class Instruction:
     def __init__(self, data):
         self.opcode = data.get('opcode')
@@ -135,7 +138,6 @@ def scoreboard(inst, op, table):
     ex_list = []
     write_list = []
     free_ex = {'int': [], 'mult': [], 'add': [], 'div': []}
-    waiting_read = {}
     reset_list = []
     att = None
     iteration = 0
@@ -155,11 +157,18 @@ def scoreboard(inst, op, table):
             free_ex[to_reset.operator.op].append(to_reset.operator)
 
         if write_list:
-            while write_list:
-                i = write_list.pop(0)
+            pop_list=[]
+            for i in write_list:
                 temp = 'x' + str(i.rd) if i.rd_type == 'int' else 'f' + str(i.rd)
+                if temp in waiting_read.keys():
+                    if waiting_read[temp]:
+                        if waiting_read[temp][0].issue < i.issue:
+                            continue
+                pop_list.append(i)
                 reset_list.append(i)
                 table.loc[i.line, 'Write'] = iteration
+            for i in pop_list:
+                write_list.remove(i)
 
         if ex_list:
             save = []
@@ -174,14 +183,28 @@ def scoreboard(inst, op, table):
         if read_list:
             save = []
             for i in read_list:
+                cond = False
                 temp1 = 'x' + str(i.rs1) if i.rs1_type == 'int' else 'f' + str(i.rs1)
                 temp2 = 'x' + str(i.rs2) if i.rs2_type == 'int' else 'f' + str(i.rs2)
                 if (registers[temp1] and registers[temp1]!=i) or (registers[temp2] and registers[temp2]!=i):
-                    waiting_read[temp1] = True
-                    waiting_read[temp2] = True
-                else:
-                    waiting_read[temp1] = False
-                    waiting_read[temp2] = False
+                    cond = True
+                    if registers[temp1]:
+                        if registers[temp1].issue > i.issue:
+                            if not registers[temp2]:
+                                cond = False
+                            else:
+                                if registers[temp2].issue > i.issue:
+                                    cond = False
+                    elif registers[temp2]:
+                        if registers[temp2].issue > i.issue:
+                            cond = False
+                    waiting_read[temp1].append(i)
+                    waiting_read[temp2].append(i)
+                if not cond:
+                    while i in waiting_read[temp1]:
+                        waiting_read[temp1].remove(i)
+                    while i in waiting_read[temp2]:
+                        waiting_read[temp2].remove(i)
                     save.append(i)
                     table.loc[i.line, 'Read'] = iteration
             for i in save:
@@ -192,9 +215,6 @@ def scoreboard(inst, op, table):
             issue_list.append(att)
         if issue_list:
             temp = 'x' + str(att.rd) if att.rd_type == 'int' else 'f' + str(att.rd)
-            if temp in waiting_read.keys():
-                if waiting_read[temp]:
-                    continue
             if registers[temp]:
                 continue
             if att.opcode in [0,1] and free_ex['int']:
@@ -209,6 +229,7 @@ def scoreboard(inst, op, table):
                 att.operator = free_ex['div'].pop()
             else:
                 continue
+            att.issue = iteration
             issue_list.remove(att)
             read_list.append(att)
             table.loc[att.line, 'Issue'] = iteration
